@@ -13,7 +13,7 @@ directory_root = '/shares/gcp/outputs'
 
 class ImperactController(BaseController):
     @expose('aggregator.templates.imperact.explore')
-    def explore(self, subdir):
+    def explore(self, subdir=''):
         return dict(subdir=subdir)
 
     @expose('json')
@@ -28,7 +28,7 @@ class ImperactController(BaseController):
 
         return download(target)
 
-    @expose(content_type='image/png', format='png')
+    @expose(content_type='image/png')
     def download_png(self, subpath):
         if '..' in subpath or '//' in subpath:
             raise UserException("Unexpected path.")
