@@ -8,6 +8,7 @@ from tg.exceptions import HTTPFound
 from tg import predicates
 from imperact import model
 from imperact.controllers.secure import SecureController
+from imperact.controllers.explore import ExploreController
 from tgext.admin.mongo import BootstrapTGMongoAdminConfig as TGAdminConfig
 from tgext.admin.controller import AdminController
 
@@ -33,7 +34,8 @@ class RootController(BaseController):
     """
     secc = SecureController()
     admin = AdminController(model, None, config_type=TGAdminConfig)
-
+    explore = ExploreController()
+    
     error = ErrorController()
 
     def _before(self, *args, **kw):
