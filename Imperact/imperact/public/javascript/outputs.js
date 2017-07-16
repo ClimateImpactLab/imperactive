@@ -33,6 +33,10 @@ function interpret(filename) {
 	basename = endremove(basename, 'incadapt', attributes);
 	basename = endremove(basename, 'indiamerge', attributes);
     }
+    if ($.inArray('noadapt', attributes) == -1 && $.inArray('incadapt', attributes) == -1)
+	attributes.push('fulladapt');
+    if ($.inArray('levels', attributes) == -1 && $.inArray('aggregated', attributes) == -1)
+	attributes.push('irlevel');
 
     return {basename: basename, attributes: attributes}
 }
@@ -44,6 +48,40 @@ function endremove(basename, attr, attributes, title) {
     }
 
     return basename;
+}
+
+function effectsetDisplay(attributes) {
+    if ($.inArray('nc4', attributes) == -1)
+	return '<span>' + attributeTitle(attributes) + '</span>';
+
+    if ($.inArray('indiamerge', attributes) != -1) {
+	var subattr = attributes.slice();
+	subattr.splice($.inArray('indiamerge', subattr), 1);
+	return '<span class="badged">' + $(effectsetDisplay(subattr)).html() + '<img class="indiamerge" src="/images/imperact/icons/indiamerge.png" alt="With India" /></span>';
+    }
+	
+    var iconPrefix = null;
+    if (attributes.length == 5 && $.inArray('costs', attributes) != -1 && $.inArray('fulladapt', attributes) != -1)
+	iconPrefix = 'costs';
+    if (attributes.length == 4 && $.inArray('fulladapt', attributes) != -1)
+	iconPrefix = 'fulladapt';
+    if (attributes.length == 4 && $.inArray('noadapt', attributes) != -1)
+	iconPrefix = 'noadapt';
+    if (attributes.length == 4 && $.inArray('incadapt', attributes) != -1)
+	iconPrefix = 'incadapt';
+    if (attributes.length == 5 && $.inArray('histclim', attributes) != -1 && $.inArray('fulladapt', attributes) != -1)
+	iconPrefix = 'histclim';
+
+    if (iconPrefix) {
+	if ($.inArray('irlevel', attributes) != -1)
+	    return '<span><img src="/images/imperact/icons/' + iconPrefix + '.png" alt="' + attributeTitle(attributes) + '" /></span>';
+	if ($.inArray('levels', attributes) != -1)
+	    return '<span><img src="/images/imperact/icons/' + iconPrefix + '-levels.png" alt="' + attributeTitle(attributes) + '" /></span>';
+	if ($.inArray('aggregated', attributes) != -1)
+	    return '<span><img src="/images/imperact/icons/' + iconPrefix + '-aggregated.png" alt="' + attributeTitle(attributes) + '" /></span>';
+    }
+
+    return 'span>' + attributeTitle(attributes) + '</span>';
 }
 
 function attributeTitle(attributes) {
@@ -64,11 +102,13 @@ function attributeTitle(attributes) {
 	    return "Income-only Adaptation";
 	if (attribute == 'indiamerge')
 	    return "With India";
-
+	if (attribute == 'fulladapt')
+	    return "Full Adaptation";
+	if (attribute == 'irlevel')
+	    return "IR Level";
+	
 	return attribute;
     });
-    if (!$.inArray('noadapt') && !$.inArray('incadapt'))
-	titles.push("Full Adaptation");
-    console.log(titles);
+
     return titles.slice(1).join(', ');
 }

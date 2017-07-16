@@ -47,8 +47,8 @@ class ExploreController(BaseController):
 
     @expose()
     def timeseries(self, targetdir, basename, variable, region):
-        target = os.path.join(targetdir, 'cache', "%s.%s.%s.nc4" % (basename, variable, region))
-        if not os.path.exists(target) or os.path.time(target) < os.path.time(os.path.join(targetdir, basename + '.nc4')):
+        target = os.path.join(directory_root, targetdir, 'cache', "%s.%s.%s.png" % (basename, variable, region))
+        if not os.path.exists(target) or os.path.getmtime(target) < os.path.getmtime(os.path.join(directory_root, targetdir, basename + '.nc4')):
             script = os.path.join(scripts_root, 'plot-timeseries.R')
             os.system("Rscript %s %s %s %s \"%s\"" % (script, targetdir, basename, variable, region))
 

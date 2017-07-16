@@ -5,6 +5,7 @@ Output explorer
 </%def>
 
 <%def name="head_tags()">
+<link rel="stylesheet" type="text/css" media="screen" href="${tg.url('/css/imperact/outputs.css')}" />
 <script src="${tg.url('/js/imperact/outputs.js')}" type="text/javascript"></script>
 </%def>
 
@@ -95,7 +96,9 @@ Output explorer
 	var basenames = interpretAll($.map(data.contents, function(metainfo, content) {return content}));
 	$.each(basenames, function(basename, attributeses) {
 	    var $links = $.map(attributeses, function(attributes) {
-		var $link = $("<a>" + attributeTitle(attributes) + "</a>");
+	    	var $display = $(effectsetDisplay(attributes));
+		var $link = $('<a></a>');
+		$link.html($display);
 		$link.click(function() {
 		    display_output(attributes[0]);
 		});
@@ -111,14 +114,21 @@ Output explorer
   update_subdir_listing = load_subdir_listing;
 
   function display_output(filename) {
-    var data = {
-      targetdir: parents_listing.join('/'),
-      basename: filename.substr(0, filename.lastIndexOf('.')),
-      variable: 'rebased',
-      region: 'global'
-    };
-    $('#display_output_img').attr('src', '/explore/timeseries?' + $.param(data));
-    $('#display_output').dialog();
+      var data = {
+	  targetdir: parents_listing.join('/'),
+	  basename: filename.substr(0, filename.lastIndexOf('.')),
+	  variable: 'rebased'
+      };
+      if (filename.indexOf("-aggregated") != -1)
+	  data.region = 'global';
+      else
+	  data.region = 'IND.33.542.2153';
+
+      $('#display_output_img').attr('src', '/explore/timeseries?' + $.param(data));
+      $('#display_output').dialog({width: 650}).on('dialogclose', function(event) {
+	  $('#display_output_img').attr('src', "/images/imperact/ajax-loader.gif");
+      });
+      
   }
 </script>
 
@@ -137,5 +147,5 @@ Output explorer
 </table>
 
 <div id="display_output" title="Display Output" style="display: none">
-  <img id="display_output_img" />
+  <img id="display_output_img" src="/images/imperact/ajax-loader.gif" />
 </div>

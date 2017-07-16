@@ -8,8 +8,10 @@ targetdir <- args[1]
 basename <- args[2]
 variable <- args[3]
 region <- args[4]
-if (region == 'global')
+if (region == 'global') {
   my.region <- ''
+} else
+  my.region <- region
 
 nc <- nc_open(file.path(directory_root, targetdir, paste0(basename, ".nc4")))
 data <- ncvar_get(nc, variable)
