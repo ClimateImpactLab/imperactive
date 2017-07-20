@@ -50,7 +50,7 @@ function endremove(basename, attr, attributes, title) {
     return basename;
 }
 
-function effectsetDisplay(attributes) {
+function effectsetDisplay(attributes, badge) {
     if ($.inArray('nc4', attributes) == -1)
 	return '<span>' + attributeTitle(attributes) + '</span>';
 
@@ -59,6 +59,9 @@ function effectsetDisplay(attributes) {
 	subattr.splice($.inArray('indiamerge', subattr), 1);
 	return '<span class="badged">' + $(effectsetDisplay(subattr)).html() + '<img class="indiamerge" src="/images/imperact/icons/indiamerge.png" alt="With India" /></span>';
     }
+
+    if (badge)
+	return '<span class="badged">' + $(effectsetDisplay(attributes)).html() + '<img class="' + badge + '" src="/images/imperact/icons/' + badge + '.png" alt="' + badge + '" /></span>';
 	
     var iconPrefix = null;
     if (attributes.length == 5 && $.inArray('costs', attributes) != -1 && $.inArray('fulladapt', attributes) != -1)
@@ -81,7 +84,7 @@ function effectsetDisplay(attributes) {
 	    return '<span><img src="/images/imperact/icons/' + iconPrefix + '-aggregated.png" alt="' + attributeTitle(attributes) + '" /></span>';
     }
 
-    return 'span>' + attributeTitle(attributes) + '</span>';
+    return '<span>' + attributeTitle(attributes) + '</span>';
 }
 
 function attributeTitle(attributes) {
@@ -111,4 +114,164 @@ function attributeTitle(attributes) {
     });
 
     return titles.slice(1).join(', ');
+}
+
+function findHistoricalClimate(attributes, attributeses) {
+    // Is there an exact match?
+    var newAttributes = attributes.slice();
+    newAttributes.push('histclim');
+    var found = findEffectset(newAttributes, attributeses);
+    if (found)
+	return found;
+
+    if ($.inArray('incadapt', newAttributes) != -1) {
+	newAttributes[$.inArray('incadapt', newAttributes)] = 'fulladapt';
+	return findHistoricalClimate(newAttributes, attributeses);
+    }
+
+    return null;
+}
+
+function findEffectset(attributes, attributeses) {
+    for (var ii = 0; ii < attributeses.length; ii++) {
+	var compare = attributeses[ii];
+	if (compare.length != attributes.length)
+	    continue;
+
+	var hasAll = true;
+	for (var ii = 1; ii < attributes.length; ii++) // start after filename
+	    if (!$.inArray(attributes[ii], compare)) {
+		hasAll = false;
+		break;
+	    }
+
+	if (hasAll)
+	    return compare;
+    }
+}
+
+function load_subdir_listing() {
+    if (parents_listing == null)
+	return;
+    $.getJSON("/explore/list_subdir", {subdir: parents_listing.join('/')}, function(data) {
+	$('#listing').html("  <tr><th>Basename</th><th>Available</th></tr>");
+	var basenames = interpretAll($.map(data.contents, function(metainfo, content) {return content}));
+	$.each(basenames, function(basename, attributeses) {
+	    var groups = [];
+	    var loners = [];
+	    var $links = [];
+	    $.each(attributeses, function(ii, attributes) {
+		if ($.inArray('irlevel', attributes) != -1)
+		    var grpcls = 'irlevel';
+		else if ($.inArray('levels', attributes) != -1)
+		    var grpcls = 'levels';
+		else if ($.inArray('aggregated', attributes) != -1)
+		    var grpcls = 'aggregated';
+		else
+		    var grpcls = 'loner';
+		if (grpcls == 'loner') {
+		    var group = attributes.slice(1).join('-');
+		    loners.push(group);
+		} else {
+		    groupattrs = attributes.slice(1);
+		    groupattrs.splice($.inArray(grpcls, groupattrs), 1);
+		    var group = groupattrs.join('-');
+		    groups.push(group);
+		}
+		
+		var $link = $('<a class="' + group + ' ' + grpcls + '"></a>');
+		$link.html(effectsetDisplay(attributes));
+		$link.click(function() {
+		    displayOutput(attributes);
+		});
+
+		$links.push($link);
+
+		// De we have a corresponding historical climate to subtract?
+		var histclim = findHistoricalClimate(attributes, attributeses);
+		if (histclim) {
+		    groups.push(group + '-histclim');
+		    var $link = $('<a class="' + group + '-histclim ' + grpcls + '"></a>');
+		    $link.html(effectsetDisplay(attributes, 'histclim'));
+		    $link.click(function() {
+			displayOutputHistclim(attributes, histclim[0].substr(0, histclim[0].length - 4));
+		    });
+
+		    $links.push($link);
+		}
+	    });
+
+	    // Group links together
+	    $linksdiv = $('<div></div>');
+	    for (ii = 0; ii < $links.length; ii++)
+		$linksdiv.append($links[ii]);
+	    var $groupdivs = $.map($.unique(groups), function(group) {
+		var $irlevel = $linksdiv.find('.' + group + '.' + 'irlevel');
+		var $levels = $linksdiv.find('.' + group + '.' + 'levels');
+		var $aggregated = $linksdiv.find('.' + group + '.' + 'aggregated');
+
+		var $groupdiv = $('<div display="inline-block"></div>');
+		$groupdiv.append($irlevel);
+		$groupdiv.append($levels);
+		$groupdiv.append($aggregated);
+		return $groupdiv;
+	    });
+	    var $lonerdivs = $.map($.unique(loners), function(group) {
+		var $groupdiv = $('<div display="inline-block"></div>');
+		$groupdiv.append($linksdiv.find('.' + group + '.loner'));
+		return $groupdiv;
+	    });
+
+	    var $row = $('<tr><td>' + basename + '</td><td class="available"></td></tr>');
+	    for (ii = 0; ii < $groupdivs.length; ii++)
+		$row.find('.available').append($groupdivs[ii]);
+	    for (ii = 0; ii < $lonerdivs.length; ii++)
+		$row.find('.available').append($lonerdivs[ii]);
+	    $('#listing').append($row);
+	});
+    });
+}
+
+function timeseriesData(attributes) {
+    var filename = attributes[0];
+    
+    var data = {
+	targetdir: parents_listing.join('/'),
+	basename: filename.substr(0, filename.lastIndexOf('.')),
+    };
+    if (filename.indexOf("-costs") != -1)
+	data.variable = 'costs_ub';
+    else
+	data.variable = 'rebased';
+      
+    if (filename.indexOf("-aggregated") != -1)
+	data.region = 'global';
+    else
+	data.region = 'IND.33.542.2153';
+
+    return data;
+}
+
+function displayOutput(attributes) {
+    var data = timeseriesData(attributes);
+    displayOutputDialog(attributes.join(','), '/explore/timeseries?' + $.param(data));
+}
+
+function displayOutputHistclim(attributes, histclim) {
+    var data = timeseriesData(attributes);
+    var newData = {
+	targetdir: data.targetdir,
+	region: data.region,
+	basevars: [data.basename + ':' + data.variable, histclim + ':-' + data.variable].join(',')
+    };
+    displayOutputDialog(attributes.join(',') + " minus historical climate",
+			'/explore/timeseries_sum?' + $.param(newData));
+}
+
+function displayOutputDialog(title, image) {
+    $('#display_output_img').attr('src', image);
+    $('#display_output_title').html(title);
+    $('#display_output').dialog({width: 650}).on('dialogclose', function(event) {
+	$('#display_output_img').attr('src', "/images/imperact/ajax-loader.gif");
+    });
 }

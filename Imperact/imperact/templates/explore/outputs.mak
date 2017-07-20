@@ -88,48 +88,7 @@ Output explorer
     }
   });
       
-  function load_subdir_listing() {
-    if (parents_listing == null)
-      return;
-    $.getJSON("/explore/list_subdir", {subdir: parents_listing.join('/')}, function(data) {
-	$('#listing').html("  <tr><th>Basename</th><th>Available</th></tr>");
-	var basenames = interpretAll($.map(data.contents, function(metainfo, content) {return content}));
-	$.each(basenames, function(basename, attributeses) {
-	    var $links = $.map(attributeses, function(attributes) {
-	    	var $display = $(effectsetDisplay(attributes));
-		var $link = $('<a></a>');
-		$link.html($display);
-		$link.click(function() {
-		    display_output(attributes[0]);
-		});
-		return $link;
-	    });
-	    var $row = $('<tr><td>' + basename + '</td><td class="available"></td></tr>');
-	    $row.find('.available').html($links);
-	    $('#listing').append($row);
-	});
-      });
-  }
-
   update_subdir_listing = load_subdir_listing;
-
-  function display_output(filename) {
-      var data = {
-	  targetdir: parents_listing.join('/'),
-	  basename: filename.substr(0, filename.lastIndexOf('.')),
-	  variable: 'rebased'
-      };
-      if (filename.indexOf("-aggregated") != -1)
-	  data.region = 'global';
-      else
-	  data.region = 'IND.33.542.2153';
-
-      $('#display_output_img').attr('src', '/explore/timeseries?' + $.param(data));
-      $('#display_output').dialog({width: 650}).on('dialogclose', function(event) {
-	  $('#display_output_img').attr('src', "/images/imperact/ajax-loader.gif");
-      });
-      
-  }
 </script>
 
 <div class="row">
@@ -142,10 +101,11 @@ Output explorer
   ${select_subdir("SSP", 'ssp', 'listing')}
 </div>
 
-<table id="listing">
+<table id="listing" border="1">
   <th>Basename</th>
 </table>
 
 <div id="display_output" title="Display Output" style="display: none">
+  <span id="display_output_title"></span>
   <img id="display_output_img" src="/images/imperact/ajax-loader.gif" />
 </div>

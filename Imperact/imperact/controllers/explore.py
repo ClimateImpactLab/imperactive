@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """Explore controller module"""
 
-import os, yaml
+import os, yaml, subprocess, datetime, time
 from tg import expose, redirect, validate, flash, url, response
 
 debug = False
@@ -10,14 +10,17 @@ if debug:
     from imperact.lib.errors import UserException
     template_root = 'imperact'
     CUSTOM_CONTENT_TYPE = 'image/png'
+    import imperact as aggregator
 else:
     from aggregator.lib.base import BaseController
     from aggregator.lib.errors import UserException
     template_root = 'aggregator'
     from tg.controllers import CUSTOM_CONTENT_TYPE
+    import aggregator
 
 directory_root = '/shares/gcp/outputs'
 scripts_root = '/home/jrising/research/gcp/imperactive/scripts'
+last_purge = time.mktime(datetime.datetime(2017, 7, 20, 0, 0, 0).timetuple())
 
 class ExploreController(BaseController):
     @expose(template_root + '.templates.explore.outputs')
@@ -45,14 +48,53 @@ class ExploreController(BaseController):
             
         return dict(contents=contents)
 
+    def graph_serve(self, targetdir, basenames, filename, generate):
+        """Serve a graph, using cached if possible and otherwise calling generate."""
+        outdir = os.path.join(aggregator.__path__[0], 'impercache', targetdir)
+        destination = os.path.join(outdir, filename)
+        if os.path.exists(destination):
+            later_than_all = True
+            for basename in basenames:
+                if os.path.getmtime(destination) < last_purge:
+                    later_than_all = False
+                    break
+                
+                if os.path.getmtime(destination) < os.path.getmtime(os.path.join(directory_root, targetdir, basename + '.nc4')):
+                    later_than_all = False
+                    break
+
+            if later_than_all:
+                return self.download_png(destination)
+
+
+        if not os.path.exists(outdir):
+            os.makedirs(outdir)
+        generate(destination)
+        return self.download_png(destination)
+
+    def make_r_generate(self, scriptname, arguments):
+        """Create a generate function to pass to graph_serve that calls an R script."""
+        def generate(destination):
+            script = os.path.join(scripts_root, scriptname)
+            try:
+                return subprocess.check_output(["Rscript", script, destination] + arguments, stderr=subprocess.STDOUT)
+            except subprocess.CalledProcessError as e:
+                raise UserException("Command '{}' return with error (code {}): {}".format(e.cmd, e.returncode, e.output))
+
+        return generate
+    
     @expose()
     def timeseries(self, targetdir, basename, variable, region):
-        target = os.path.join(directory_root, targetdir, 'cache', "%s.%s.%s.png" % (basename, variable, region))
-        if not os.path.exists(target) or os.path.getmtime(target) < os.path.getmtime(os.path.join(directory_root, targetdir, basename + '.nc4')):
-            script = os.path.join(scripts_root, 'plot-timeseries.R')
-            os.system("Rscript %s %s %s %s \"%s\"" % (script, targetdir, basename, variable, region))
+        calculation = [basename + ':' + variable]
+        return self.graph_serve(targetdir, [basename], "%s.%s.%s.png" % (basename, variable, region),
+                                self.make_r_generate('plot-timeseries.R', [targetdir, region] + calculation))
 
-        return self.download_png(target)
+    @expose()
+    def timeseries_sum(self, targetdir, basevars, region):
+        calculation = basevars.split(',')
+        basenames = map(lambda x: x[:x.index(':')], calculation)
+        return self.graph_serve(targetdir, basenames, "%s.%s.png" % (calculation, region),
+                                self.make_r_generate('plot-timeseries.R', [targetdir, region] + calculation))
 
     @expose(content_type=CUSTOM_CONTENT_TYPE)
     def download_png(self, subpath):
