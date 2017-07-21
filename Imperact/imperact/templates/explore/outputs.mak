@@ -5,8 +5,10 @@ Output explorer
 </%def>
 
 <%def name="head_tags()">
-<link rel="stylesheet" type="text/css" media="screen" href="${tg.url('/css/imperact/outputs.css')}" />
+<link rel="stylesheet" type="text/css" href="${tg.url('/css/imperact/outputs.css')}" />
 <script src="${tg.url('/js/imperact/outputs.js')}" type="text/javascript"></script>
+<link rel="stylesheet" type="text/css" href="${tg.url('/css/imperact/jquery.qtip.min.css')}" />
+<script src="${tg.url('/js/imperact/jquery.qtip.min.js')}" type="text/javascript"></script>
 </%def>
 
 <%def name="select_subdir(label, name, child)">

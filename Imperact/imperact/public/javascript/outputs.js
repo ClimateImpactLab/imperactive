@@ -180,6 +180,7 @@ function load_subdir_listing() {
 		}
 		
 		var $link = $('<a class="' + group + ' ' + grpcls + '"></a>');
+		$link.qtip({content: {text: attributeTitle(attributes)}});
 		$link.html(effectsetDisplay(attributes));
 		$link.click(function() {
 		    displayOutput(attributes);
@@ -192,6 +193,7 @@ function load_subdir_listing() {
 		if (histclim) {
 		    groups.push(group + '-histclim');
 		    var $link = $('<a class="' + group + '-histclim ' + grpcls + '"></a>');
+		    $link.qtip({content: {text: attributeTitle(attributes) + " minus historical climate"}});
 		    $link.html(effectsetDisplay(attributes, 'histclim'));
 		    $link.click(function() {
 			displayOutputHistclim(attributes, histclim[0].substr(0, histclim[0].length - 4));
