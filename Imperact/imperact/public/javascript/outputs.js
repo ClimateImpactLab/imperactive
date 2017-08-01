@@ -11,15 +11,14 @@ function interpretAll(filenames) {
 }
 
 function interpret(filename) {
-    var attributes = [filename];
+    var attributes = [];
     
     // Get basename and attributes
     var re = /(?:\.([^.]+))?$/;
     var ext = re.exec(filename)[1];
-    if (ext) {
-	attributes.push(ext);
+    if (ext)
 	var basename = filename.slice(0, -ext.length - 1);
-    } else
+    else
 	var basename = filename;
 
     var oldbasename = "";
@@ -34,16 +33,21 @@ function interpret(filename) {
 	basename = endremove(basename, 'indiamerge', attributes);
     }
     if ($.inArray('noadapt', attributes) == -1 && $.inArray('incadapt', attributes) == -1)
-	attributes.push('fulladapt');
+	attributes.unshift('fulladapt');
     if ($.inArray('levels', attributes) == -1 && $.inArray('aggregated', attributes) == -1)
 	attributes.push('irlevel');
 
+    if (ext)
+	attributes.push(ext);
+
+    attributes.unshift(filename);
+    
     return {basename: basename, attributes: attributes}
 }
 
 function endremove(basename, attr, attributes, title) {
     if (basename.endsWith('-' + attr)) {
-	attributes.push(attr);
+	attributes.unshift(attr);
 	return basename.slice(0, -attr.length - 1);
     }
 
@@ -118,6 +122,9 @@ function attributeTitle(attributes) {
 
 function findHistoricalClimate(attributes, attributeses) {
     // Is there an exact match?
+    if ($.inArray('noadapt', attributes) != -1)
+	return null;
+
     var newAttributes = attributes.slice();
     newAttributes.push('histclim');
     var found = findEffectset(newAttributes, attributeses);
@@ -126,7 +133,7 @@ function findHistoricalClimate(attributes, attributeses) {
 
     if ($.inArray('incadapt', newAttributes) != -1) {
 	newAttributes[$.inArray('incadapt', newAttributes)] = 'fulladapt';
-	return findHistoricalClimate(newAttributes, attributeses);
+	return findEffectset(newAttributes, attributeses);
     }
 
     return null;
@@ -139,8 +146,8 @@ function findEffectset(attributes, attributeses) {
 	    continue;
 
 	var hasAll = true;
-	for (var ii = 1; ii < attributes.length; ii++) // start after filename
-	    if (!$.inArray(attributes[ii], compare)) {
+	for (var jj = 1; jj < attributes.length; jj++) // start after filename
+	    if ($.inArray(attributes[jj], compare) == -1) {
 		hasAll = false;
 		break;
 	    }
@@ -189,7 +196,10 @@ function load_subdir_listing() {
 		$links.push($link);
 
 		// De we have a corresponding historical climate to subtract?
+		console.log("search");
+		console.log(attributes);
 		var histclim = findHistoricalClimate(attributes, attributeses);
+		console.log(histclim);
 		if (histclim) {
 		    groups.push(group + '-histclim');
 		    var $link = $('<a class="' + group + '-histclim ' + grpcls + '"></a>');
@@ -256,7 +266,7 @@ function timeseriesData(attributes) {
 
 function displayOutput(attributes) {
     var data = timeseriesData(attributes);
-    displayOutputDialog(attributes.join(','), '/explore/timeseries?' + $.param(data));
+    displayOutputDialog(attributes[0] + ': ' + attributeTitle(attributes), '/explore/timeseries?' + $.param(data));
 }
 
 function displayOutputHistclim(attributes, histclim) {
@@ -266,7 +276,7 @@ function displayOutputHistclim(attributes, histclim) {
 	region: data.region,
 	basevars: [data.basename + ':' + data.variable, histclim + ':-' + data.variable].join(',')
     };
-    displayOutputDialog(attributes.join(',') + " minus historical climate",
+    displayOutputDialog(attributes[0] + ': ' + attributeTitle(attributes) + " minus historical climate",
 			'/explore/timeseries_sum?' + $.param(newData));
 }
 
