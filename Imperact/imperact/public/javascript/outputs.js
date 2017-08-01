@@ -154,83 +154,94 @@ function load_subdir_listing() {
     if (parents_listing == null)
 	return;
     $.getJSON("/explore/list_subdir", {subdir: parents_listing.join('/')}, function(data) {
-	$('#listing').html("  <tr><th>Basename</th><th>Available</th></tr>");
-	var basenames = interpretAll($.map(data.contents, function(metainfo, content) {return content}));
-	$.each(basenames, function(basename, attributeses) {
-	    var groups = [];
-	    var loners = [];
-	    var $links = [];
-	    $.each(attributeses, function(ii, attributes) {
-		if ($.inArray('irlevel', attributes) != -1)
-		    var grpcls = 'irlevel';
-		else if ($.inArray('levels', attributes) != -1)
-		    var grpcls = 'levels';
-		else if ($.inArray('aggregated', attributes) != -1)
-		    var grpcls = 'aggregated';
-		else
-		    var grpcls = 'loner';
-		if (grpcls == 'loner') {
-		    var group = attributes.slice(1).join('-');
-		    loners.push(group);
-		} else {
-		    groupattrs = attributes.slice(1);
-		    groupattrs.splice($.inArray(grpcls, groupattrs), 1);
-		    var group = groupattrs.join('-');
-		    groups.push(group);
-		}
-		
-		var $link = $('<a class="' + group + ' ' + grpcls + '"></a>');
-		$link.qtip({content: {text: attributeTitle(attributes)}});
-		$link.html(effectsetDisplay(attributes));
-		$link.click(function() {
-		    displayOutput(attributes);
-		});
-
-		$links.push($link);
-
-		// De we have a corresponding historical climate to subtract?
-		var histclim = findHistoricalClimate(attributes, attributeses);
-		if (histclim) {
-		    groups.push(group + '-histclim');
-		    var $link = $('<a class="' + group + '-histclim ' + grpcls + '"></a>');
-		    $link.qtip({content: {text: attributeTitle(attributes) + " minus historical climate"}});
-		    $link.html(effectsetDisplay(attributes, 'histclim'));
-		    $link.click(function() {
-			displayOutputHistclim(attributes, histclim[0].substr(0, histclim[0].length - 4));
-		    });
-
-		    $links.push($link);
-		}
+	make_table(data.contents, function($link, basename, attributes, metainfo) {
+	    $link.click(function() {
+		displayOutput(attributes);
 	    });
-
-	    // Group links together
-	    $linksdiv = $('<div></div>');
-	    for (ii = 0; ii < $links.length; ii++)
-		$linksdiv.append($links[ii]);
-	    var $groupdivs = $.map($.unique(groups), function(group) {
-		var $irlevel = $linksdiv.find('.' + group + '.' + 'irlevel');
-		var $levels = $linksdiv.find('.' + group + '.' + 'levels');
-		var $aggregated = $linksdiv.find('.' + group + '.' + 'aggregated');
-
-		var $groupdiv = $('<div display="inline-block"></div>');
-		$groupdiv.append($irlevel);
-		$groupdiv.append($levels);
-		$groupdiv.append($aggregated);
-		return $groupdiv;
-	    });
-	    var $lonerdivs = $.map($.unique(loners), function(group) {
-		var $groupdiv = $('<div display="inline-block"></div>');
-		$groupdiv.append($linksdiv.find('.' + group + '.loner'));
-		return $groupdiv;
-	    });
-
-	    var $row = $('<tr><td>' + basename + '</td><td class="available"></td></tr>');
-	    for (ii = 0; ii < $groupdivs.length; ii++)
-		$row.find('.available').append($groupdivs[ii]);
-	    for (ii = 0; ii < $lonerdivs.length; ii++)
-		$row.find('.available').append($lonerdivs[ii]);
-	    $('#listing').append($row);
 	});
+    });
+}
+
+function make_table(contents, link_callback, skiphist) {
+    $('#listing').html("  <tr><th>Basename</th><th>Available</th></tr>");
+    var basenames = interpretAll($.map(contents, function(metainfo, content) {return content}));
+    $.each(basenames, function(basename, attributeses) {
+	// Collect derivatives of basename into groups
+	var groups = [];
+	var loners = [];
+	var $links = [];
+	$.each(attributeses, function(ii, attributes) {
+	    if ($.inArray('irlevel', attributes) != -1)
+		var grpcls = 'irlevel';
+	    else if ($.inArray('levels', attributes) != -1)
+		var grpcls = 'levels';
+	    else if ($.inArray('aggregated', attributes) != -1)
+		var grpcls = 'aggregated';
+	    else
+		var grpcls = 'loner';
+	    if (grpcls == 'loner') {
+		var group = attributes.slice(1).join('-');
+		loners.push(group);
+	    } else {
+		groupattrs = attributes.slice(1);
+		groupattrs.splice($.inArray(grpcls, groupattrs), 1);
+		var group = groupattrs.join('-');
+		groups.push(group);
+	    }
+		
+	    var $link = $('<a class="' + group + ' ' + grpcls + '"></a>');
+	    $link.qtip({content: {text: attributeTitle(attributes)}});
+	    $link.html(effectsetDisplay(attributes));
+	    link_callback($link, basename, attributes, contents[attributes[0]]);
+	    
+	    $links.push($link);
+
+	    if (skiphist)
+		continue;
+		
+	    // De we have a corresponding historical climate to subtract?
+	    var histclim = findHistoricalClimate(attributes, attributeses);
+	    if (histclim) {
+		groups.push(group + '-histclim');
+		var $link = $('<a class="' + group + '-histclim ' + grpcls + '"></a>');
+		$link.qtip({content: {text: attributeTitle(attributes) + " minus historical climate"}});
+		$link.html(effectsetDisplay(attributes, 'histclim'));
+		$link.click(function() {
+		    displayOutputHistclim(attributes, histclim[0].substr(0, histclim[0].length - 4));
+		});
+		
+		$links.push($link);
+	    }
+	});
+
+	$linksdiv = $('<div></div>');
+	for (ii = 0; ii < $links.length; ii++)
+	    $linksdiv.append($links[ii]);
+
+	// Group links together
+	var $groupdivs = $.map($.unique(groups), function(group) {
+	    var $irlevel = $linksdiv.find('.' + group + '.' + 'irlevel');
+	    var $levels = $linksdiv.find('.' + group + '.' + 'levels');
+	    var $aggregated = $linksdiv.find('.' + group + '.' + 'aggregated');
+	    
+	    var $groupdiv = $('<div display="inline-block"></div>');
+	    $groupdiv.append($irlevel);
+	    $groupdiv.append($levels);
+	    $groupdiv.append($aggregated);
+	    return $groupdiv;
+	});
+	var $lonerdivs = $.map($.unique(loners), function(group) {
+	    var $groupdiv = $('<div display="inline-block"></div>');
+	    $groupdiv.append($linksdiv.find('.' + group + '.loner'));
+	    return $groupdiv;
+	});
+
+	var $row = $('<tr><td>' + basename + '</td><td class="available"></td></tr>');
+	for (ii = 0; ii < $groupdivs.length; ii++)
+	    $row.find('.available').append($groupdivs[ii]);
+	for (ii = 0; ii < $lonerdivs.length; ii++)
+	    $row.find('.available').append($lonerdivs[ii]);
+	$('#listing').append($row);
     });
 }
 

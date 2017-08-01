@@ -41,6 +41,21 @@ Output explorer
       $('#${name}').prop('disabled', false);
       callback();
     });
+
+    % if name not in ['sector', 'version']:
+    if (walking_jqxhr)
+	walking_jqxhr.abort();
+    var jqxhr = $.getJSON("/explore/walk_subdir", {subdir: parents_${name}.join('/')}, function(data) {
+	// Check if still active
+	if (walking_jqxhr == jqxhr) {
+	    walking_jqxhr = null;
+	    make_table(data.contents, function($link, basename, attributes, metainfo) {
+		$link.append(' (' + metainfo + ')');
+	    }, true);
+	}
+    });
+    walking_jqxhr = jqxhr;
+    % endif    
   }
 
   function load_subdir_${name}(descends) {
@@ -81,6 +96,7 @@ Output explorer
 
 <script type="text/javascript">
   parents_listing = [];
+  walking_jqxhr = null;
 
   $(function() {
     if (window.location.hash == '')

@@ -48,6 +48,17 @@ class ExploreController(BaseController):
             
         return dict(contents=contents)
 
+    @expose('json')
+    def walk_subdir(self, subdir):
+        fullpath = os.path.join(directory_root, subdir)
+
+        contents = {} # {filename: #}
+        for root, dirs, files in os.walk(fullpath):
+            for content in files:
+                contents[content] = contents.get(content, 0) + 1
+
+        return dict(contents=contents)
+    
     def graph_serve(self, targetdir, basenames, filename, generate):
         """Serve a graph, using cached if possible and otherwise calling generate."""
         outdir = os.path.join(aggregator.__path__[0], 'impercache', targetdir)
