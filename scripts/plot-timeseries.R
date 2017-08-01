@@ -46,8 +46,8 @@ for (term in args[4:length(args)]) {
     nc_close(nc)
 
     if (is.null(current.years) || all.equal(years, current.years) == T) {
-       current.series <- current.series + series
-       current.years = years
+        current.series <- current.series + series
+        current.years = years
     }
 }
 

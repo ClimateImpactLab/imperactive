@@ -4,7 +4,7 @@
 import os, yaml, subprocess, datetime, time
 from tg import expose, redirect, validate, flash, url, response
 
-debug = False
+debug = True #False
 if debug:
     from imperact.lib.base import BaseController
     from imperact.lib.errors import UserException
@@ -104,7 +104,7 @@ class ExploreController(BaseController):
     def timeseries_sum(self, targetdir, basevars, region):
         calculation = basevars.split(',')
         basenames = map(lambda x: x[:x.index(':')], calculation)
-        return self.graph_serve(targetdir, basenames, "%s.%s.png" % (calculation, region),
+        return self.graph_serve(targetdir, basenames, "%s.%s.png" % (basevars, region),
                                 self.make_r_generate('plot-timeseries.R', [targetdir, region] + calculation))
 
     @expose(content_type=CUSTOM_CONTENT_TYPE)
