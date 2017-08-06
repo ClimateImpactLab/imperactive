@@ -50,7 +50,7 @@ Output explorer
 	if (walking_jqxhr == jqxhr) {
 	    walking_jqxhr = null;
 	    make_table(data.contents, function($link, basename, attributes, metainfo) {
-		$link.append(' (' + metainfo + ')');
+		$link.prepend(metainfo + ' &times; ');
 	    }, true);
 	}
     });

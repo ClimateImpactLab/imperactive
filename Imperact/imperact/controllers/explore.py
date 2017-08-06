@@ -4,7 +4,7 @@
 import os, yaml, subprocess, datetime, time
 from tg import expose, redirect, validate, flash, url, response
 
-debug = True #False
+debug = False
 if debug:
     from imperact.lib.base import BaseController
     from imperact.lib.errors import UserException
