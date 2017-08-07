@@ -3,6 +3,7 @@
 
 import os, yaml, subprocess, datetime, time
 from tg import expose, redirect, validate, flash, url, response
+import numpy as np
 
 debug = True #False
 if debug:
@@ -21,6 +22,16 @@ else:
 directory_root = '/shares/gcp/outputs'
 scripts_root = '/home/jrising/research/gcp/imperactive/scripts'
 last_purge = time.mktime(datetime.datetime(2017, 7, 20, 0, 0, 0).timetuple())
+
+hierarchy = metacsv.read_csv("/shares/gcp/regions/hierarchy_metacsv.csv")
+
+irlevel_keys = np.concatenate((hierarchy['region-key'][hierarchy['is_terminal']], hierarchy['region-key'][hierarchy['is_terminal']], hierarchy['region-key'][(hierarchy['alternatives'].astype('S') != 'nan') & (hierarchy['is_terminal'])])).astype('S')
+irlevel_labels = np.concatenate((hierarchy['region-key'][hierarchy['is_terminal']], hierarchy['name'][hierarchy['is_terminal']], hierarchy['alternatives'][(hierarchy['alternatives'].astype('S') != 'nan') & (hierarchy['is_terminal'])])).astype('S')
+irlevel_search = np.core.defchararray.lower(irlevel_labels)
+
+aggregated_keys = np.concatenate((['', ''], hierarchy['region-key'][np.logical_not(hierarchy['is_terminal'])], hierarchy['region-key'][np.logical_not(hierarchy['is_terminal'])], hierarchy['region-key'][(hierarchy['alternatives'].astype('S') != 'nan') & (np.logical_not(hierarchy['is_terminal']))])).astype('S')
+aggregated_labels = np.concatenate((['Global', 'World'], hierarchy['region-key'][np.logical_not(hierarchy['is_terminal'])], hierarchy['name'][np.logical_not(hierarchy['is_terminal'])], hierarchy['alternatives'][(hierarchy['alternatives'].astype('S') != 'nan') & (np.logical_not(hierarchy['is_terminal']))])).astype('S')
+aggregated_search = np.core.defchararray.lower(aggregated_labels)
 
 class ExploreController(BaseController):
     @expose(template_root + '.templates.explore.outputs')
@@ -107,6 +118,15 @@ class ExploreController(BaseController):
         return self.graph_serve(targetdir, basenames, "%s.%s.png" % (basevars, region),
                                 self.make_r_generate('plot-timeseries.R', [targetdir, region] + calculation))
 
+    @expose('json')
+    def search_regions(basename, query):
+        if '-aggregated' in basename:
+            founds = np.core.defchararray.find(aggregated_search, query.lower()) >= 0
+            return dict(options=zip(aggregated_keys[founds], aggregated_labels[founds]))
+        else:
+            founds = np.core.defchararray.find(irlevel_search, query.lower()) >= 0
+            return dict(options=zip(irlevel_keys[founds], irlevel_labels[founds]))
+    
     @expose(content_type=CUSTOM_CONTENT_TYPE)
     def download_png(self, subpath):
         if '..' in subpath or '//' in subpath:

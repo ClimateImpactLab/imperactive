@@ -124,6 +124,8 @@ Output explorer
 </table>
 
 <div id="display_output" title="Display Output" style="display: none">
+  <label for="display_output_region">Region:</label>
+  <input type="text" name="region" id="display_output_region" />
   <span id="display_output_title"></span>
   <img id="display_output_img" src="/images/imperact/ajax-loader.gif" />
 </div>

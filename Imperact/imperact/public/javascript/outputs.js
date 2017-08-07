@@ -329,7 +329,15 @@ function displayOutputHistclim(attributes, histclim) {
 			'/explore/timeseries_sum?' + $.param(newData));
 }
 
-function displayOutputDialog(title, image) {
+function displayOutputDialog(region, basename, title, image) {
+    $('#display_output_region').autocomplete({
+	source: "/explore/search_regions",
+	data: {'basename': basename},
+	minLength: 2,
+	select: function(event, ui) {
+            console.log("Selected: " + ui.item.value + " aka " + ui.item.id);
+	}
+    });
     $('#display_output_img').attr('src', image);
     $('#display_output_title').html(title);
     $('#display_output').dialog({width: 650}).on('dialogclose', function(event) {
