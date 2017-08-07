@@ -204,7 +204,7 @@ function make_table(contents, link_callback, skiphist) {
 	    $links.push($link);
 
 	    if (skiphist)
-		continue;
+		return;
 		
 	    // De we have a corresponding historical climate to subtract?
 	    var histclim = findHistoricalClimate(attributes, attributeses);
@@ -221,50 +221,10 @@ function make_table(contents, link_callback, skiphist) {
 	    }
 	});
 
-<<<<<<< HEAD
+	// Group links together
 	$linksdiv = $('<div></div>');
 	for (ii = 0; ii < $links.length; ii++)
 	    $linksdiv.append($links[ii]);
-=======
-		// De we have a corresponding historical climate to subtract?
-		console.log("search");
-		console.log(attributes);
-		var histclim = findHistoricalClimate(attributes, attributeses);
-		console.log(histclim);
-		if (histclim) {
-		    groups.push(group + '-histclim');
-		    var $link = $('<a class="' + group + '-histclim ' + grpcls + '"></a>');
-		    $link.qtip({content: {text: attributeTitle(attributes) + " minus historical climate"}});
-		    $link.html(effectsetDisplay(attributes, 'histclim'));
-		    $link.click(function() {
-			displayOutputHistclim(attributes, histclim[0].substr(0, histclim[0].length - 4));
-		    });
-
-		    $links.push($link);
-		}
-	    });
-
-	    // Group links together
-	    $linksdiv = $('<div></div>');
-	    for (ii = 0; ii < $links.length; ii++)
-		$linksdiv.append($links[ii]);
-	    var $groupdivs = $.map($.unique(groups), function(group) {
-		var $irlevel = $linksdiv.find('.' + group + '.' + 'irlevel');
-		var $levels = $linksdiv.find('.' + group + '.' + 'levels');
-		var $aggregated = $linksdiv.find('.' + group + '.' + 'aggregated');
-
-		var $groupdiv = $('<div display="inline-block"></div>');
-		$groupdiv.append($irlevel);
-		$groupdiv.append($levels);
-		$groupdiv.append($aggregated);
-		return $groupdiv;
-	    });
-	    var $lonerdivs = $.map($.unique(loners), function(group) {
-		var $groupdiv = $('<div display="inline-block"></div>');
-		$groupdiv.append($linksdiv.find('.' + group + '.loner'));
-		return $groupdiv;
-	    });
->>>>>>> d2d8a564a0008743c4fb60b8a2e19921b9722d2d
 
 	// Group links together
 	var $groupdivs = $.map($.unique(groups), function(group) {
