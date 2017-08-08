@@ -29,7 +29,7 @@ Output explorer
     });
   });
 
-  function fill_${name}(callback) {
+  function fill_${name}(callback, skipwalk) {
     $.getJSON("/explore/list_subdir", {subdir: parents_${name}.join('/')}, function(data) {
       $('#${name}').html('<option value="">Select below</option>');
       $.each(data['contents'], function(content, metadata) {
@@ -41,6 +41,9 @@ Output explorer
       $('#${name}').prop('disabled', false);
       callback();
     });
+
+    if (skipwalk)
+	return;
 
     % if name not in ['sector', 'version']:
     if (walking_jqxhr)
@@ -66,7 +69,7 @@ Output explorer
 	parents_${child}.push(descends[0]);
 	load_subdir_${child}(descends.slice(1));
       }
-    });
+    }, descends.length > 0);
   }
   
   function update_subdir_${name}() {

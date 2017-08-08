@@ -275,7 +275,10 @@ function timeseriesData(attributes) {
 
 function displayOutput(attributes) {
     var data = timeseriesData(attributes);
-    displayOutputDialog(attributes[0] + ': ' + attributeTitle(attributes), '/explore/timeseries?' + $.param(data));
+    displayOutputDialog(data.region, data.basename, attributes[0] + ': ' + attributeTitle(attributes), function(region) {
+	data.region = region;
+	return '/explore/timeseries?' + $.param(data);
+    });
 }
 
 function displayOutputHistclim(attributes, histclim) {
@@ -286,21 +289,35 @@ function displayOutputHistclim(attributes, histclim) {
 	basevars: [data.basename + ':' + data.variable, histclim + ':-' + data.variable].join(',')
     };
     displayOutputDialog(attributes[0] + ': ' + attributeTitle(attributes) + " minus historical climate",
-			'/explore/timeseries_sum?' + $.param(newData));
+			function(region) {
+			    newData.region = region;
+			    return '/explore/timeseries_sum?' + $.param(newData);
+			});
 }
 
-function displayOutputDialog(region, basename, title, image) {
+function displayOutputDialog(region, basename, title, getimage) {
     $('#display_output_region').autocomplete({
-	source: "/explore/search_regions",
-	data: {'basename': basename},
+	source: function(request, response) {
+	    $.getJSON("/explore/search_regions",
+		      {'basename': basename, query: $('#display_output_region').val()},
+		      function(data) {
+			  response($.map(data.options, function(val) {
+			      return {label: val[1], value: val[0]};
+			  }));
+		      });
+	},
 	minLength: 2,
 	select: function(event, ui) {
-            console.log("Selected: " + ui.item.value + " aka " + ui.item.id);
+	    $('#display_output_img').attr('src', "/images/imperact/ajax-loader.gif");
+	    setTimeout(function() {
+		$('#display_output_img').attr('src', getimage(ui.item.value))
+	    }, 100);
 	}
     });
-    $('#display_output_img').attr('src', image);
+    $('#display_output_img').attr('src', getimage(region));
     $('#display_output_title').html(title);
     $('#display_output').dialog({width: 650}).on('dialogclose', function(event) {
+	$('#display_output_region').val('');
 	$('#display_output_img').attr('src', "/images/imperact/ajax-loader.gif");
     });
 }

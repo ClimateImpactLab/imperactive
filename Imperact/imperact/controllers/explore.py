@@ -4,6 +4,7 @@
 import os, yaml, subprocess, datetime, time
 from tg import expose, redirect, validate, flash, url, response
 import numpy as np
+import metacsv
 
 debug = False
 if debug:
@@ -119,7 +120,8 @@ class ExploreController(BaseController):
                                 self.make_r_generate('plot-timeseries.R', [targetdir, region] + calculation))
 
     @expose('json')
-    def search_regions(basename, query):
+    def search_regions(self, basename, query):
+        query = str(query) # remove encoding
         if '-aggregated' in basename:
             founds = np.core.defchararray.find(aggregated_search, query.lower()) >= 0
             return dict(options=zip(aggregated_keys[founds], aggregated_labels[founds]))
