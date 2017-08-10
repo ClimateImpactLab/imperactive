@@ -275,10 +275,12 @@ function timeseriesData(attributes) {
 
 function displayOutput(attributes) {
     var data = timeseriesData(attributes);
-    displayOutputDialog(data.region, data.basename, attributes[0] + ': ' + attributeTitle(attributes), function(region) {
-	data.region = region;
-	return '/explore/timeseries?' + $.param(data);
-    });
+    displayOutputDialog(data.region, data.variable, data.basename, attributes[0] + ': ' + attributeTitle(attributes),
+			function(region, variable) {
+			    data.region = region;
+			    data.variable = variable;
+			    return '/explore/timeseries?' + $.param(data);
+			});
 }
 
 function displayOutputHistclim(attributes, histclim) {
@@ -288,14 +290,18 @@ function displayOutputHistclim(attributes, histclim) {
 	region: data.region,
 	basevars: [data.basename + ':' + data.variable, histclim + ':-' + data.variable].join(',')
     };
-    displayOutputDialog(attributes[0] + ': ' + attributeTitle(attributes) + " minus historical climate",
+    displayOutputDialog(data.region, data.variable, data.basename,
+			attributes[0] + ': ' + attributeTitle(attributes) + " minus historical climate",
 			function(region) {
 			    newData.region = region;
+			    newData.variable = variable;
 			    return '/explore/timeseries_sum?' + $.param(newData);
 			});
 }
 
-function displayOutputDialog(region, basename, title, getimage) {
+function displayOutputDialog(region, variable, basename, title, getimage) {
+    $('#display_output_title').html(title);
+
     $('#display_output_region').autocomplete({
 	source: function(request, response) {
 	    $.getJSON("/explore/search_regions",
@@ -307,17 +313,41 @@ function displayOutputDialog(region, basename, title, getimage) {
 		      });
 	},
 	minLength: 2,
-	select: function(event, ui) {
-	    $('#display_output_img').attr('src', "/images/imperact/ajax-loader.gif");
-	    setTimeout(function() {
-		$('#display_output_img').attr('src', getimage(ui.item.value))
-	    }, 100);
-	}
+	select: function(event, ui) { displayOutputUpdate(getimage) }
     });
+
+    $('#display_output_variable')
+	.off('change')
+	.attr('disabled', true)
+	.html('<option value="' + variable + '">' + variable + '</option>');
+    $.getJSON("/explore/get_variables",
+	      {'targetdir': targetdir, 'basename': basename},
+	      function(data) {
+		  $('#display_output_variable').empty();
+		  for (var ii = 0; ii < data.variables; ii++) {
+		      var newvar = data.variables[ii];
+		      $('#display_output_variable').append('<option value="' + newvar + '">' + newvar + '</option>');
+		  }
+
+		  $('#display_output_variable')
+		      .val(variable)
+		      .change(function() { displayOutputUpdate(getimage) })
+		      .attr('disabled', false)
+	      });
+    
     $('#display_output_img').attr('src', getimage(region));
-    $('#display_output_title').html(title);
+    
     $('#display_output').dialog({width: 650}).on('dialogclose', function(event) {
 	$('#display_output_region').val('');
 	$('#display_output_img').attr('src', "/images/imperact/ajax-loader.gif");
     });
+}
+
+function displayOutputUpdate(getimage) {
+    var src = getimage($('#display_output_region').val(), $('#display_output_variable').val())
+    
+    $('#display_output_img').attr('src', "/images/imperact/ajax-loader.gif");
+    setTimeout(function() {
+	$('#display_output_img').attr('src', src)
+    }, 100);
 }

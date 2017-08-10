@@ -5,6 +5,7 @@ import os, yaml, subprocess, datetime, time
 from tg import expose, redirect, validate, flash, url, response
 import numpy as np
 import metacsv
+from netCDF4 import Dataset
 
 debug = False
 if debug:
@@ -89,7 +90,6 @@ class ExploreController(BaseController):
             if later_than_all:
                 return self.download_png(destination)
 
-
         if not os.path.exists(outdir):
             os.makedirs(outdir)
         generate(destination)
@@ -128,6 +128,15 @@ class ExploreController(BaseController):
         else:
             founds = np.core.defchararray.find(irlevel_search, query.lower()) >= 0
             return dict(options=zip(irlevel_keys[founds], irlevel_labels[founds]))
+
+    @expose('json')
+    def get_variables(self, targetdir, basename):
+        filepath = os.path.join(directory_root, targetdir, basename + '.nc4')
+        rootgrp = Dataset(filepath, 'r', format='NETCDF4')
+        variables = rootgrp.variables.keys()
+        rootgrp.close()
+
+        return dict(variables=variables)
     
     @expose(content_type=CUSTOM_CONTENT_TYPE)
     def download_png(self, subpath):
