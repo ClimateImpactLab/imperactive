@@ -275,12 +275,8 @@ function timeseriesData(attributes) {
 
 function displayOutput(attributes) {
     var data = timeseriesData(attributes);
-    displayOutputDialog(data.region, data.variable, data.basename, attributes[0] + ': ' + attributeTitle(attributes),
-			function(region, variable) {
-			    data.region = region;
-			    data.variable = variable;
-			    return '/explore/timeseries?' + $.param(data);
-			});
+    displayOutputDialog(attributes[0] + ': ' + attributeTitle(attributes),
+			'/explore/timeseries', data);
 }
 
 function displayOutputHistclim(attributes, histclim) {
@@ -290,22 +286,18 @@ function displayOutputHistclim(attributes, histclim) {
 	region: data.region,
 	basevars: [data.basename + ':' + data.variable, histclim + ':-' + data.variable].join(',')
     };
-    displayOutputDialog(data.region, data.variable, data.basename,
-			attributes[0] + ': ' + attributeTitle(attributes) + " minus historical climate",
-			function(region) {
-			    newData.region = region;
-			    newData.variable = variable;
-			    return '/explore/timeseries_sum?' + $.param(newData);
-			});
+    displayOutputDialog(attributes[0] + ': ' + attributeTitle(attributes) + " minus historical climate",
+			'/explore/timeseries_sum', newData);
 }
 
-function displayOutputDialog(region, variable, basename, title, getimage) {
+function displayOutputDialog(title, generator, data) {
     $('#display_output_title').html(title);
 
+    $('#display_output_region').val(data.region);
     $('#display_output_region').autocomplete({
 	source: function(request, response) {
 	    $.getJSON("/explore/search_regions",
-		      {'basename': basename, query: $('#display_output_region').val()},
+		      {'basename': data.basename, query: $('#display_output_region').val()},
 		      function(data) {
 			  response($.map(data.options, function(val) {
 			      return {label: val[1], value: val[0]};
@@ -313,29 +305,33 @@ function displayOutputDialog(region, variable, basename, title, getimage) {
 		      });
 	},
 	minLength: 2,
-	select: function(event, ui) { displayOutputUpdate(getimage) }
+	select: function(event, ui) { displayOutputUpdate(generator, data) }
     });
 
     $('#display_output_variable')
 	.off('change')
 	.attr('disabled', true)
-	.html('<option value="' + variable + '">' + variable + '</option>');
+	.html('<option value="' + data.variable + '">' + data.variable + '</option>');
     $.getJSON("/explore/get_variables",
-	      {'targetdir': targetdir, 'basename': basename},
-	      function(data) {
+	      {'targetdir': data.targetdir, 'basename': data.basename},
+	      function(json) {
+		  console.log(json);
 		  $('#display_output_variable').empty();
-		  for (var ii = 0; ii < data.variables; ii++) {
-		      var newvar = data.variables[ii];
+		  for (var ii = 0; ii < json.variables.length; ii++) {
+		      var newvar = json.variables[ii];
+		      if (newvar == 'year' || newvar == 'time' || newvar == 'region')
+			  continue;
+		      
 		      $('#display_output_variable').append('<option value="' + newvar + '">' + newvar + '</option>');
 		  }
 
 		  $('#display_output_variable')
-		      .val(variable)
-		      .change(function() { displayOutputUpdate(getimage) })
+		      .val(data.variable)
+		      .change(function() { displayOutputUpdate(generator, data) })
 		      .attr('disabled', false)
 	      });
-    
-    $('#display_output_img').attr('src', getimage(region));
+
+    displayOutputUpdate(generator, data);
     
     $('#display_output').dialog({width: 650}).on('dialogclose', function(event) {
 	$('#display_output_region').val('');
@@ -343,8 +339,10 @@ function displayOutputDialog(region, variable, basename, title, getimage) {
     });
 }
 
-function displayOutputUpdate(getimage) {
-    var src = getimage($('#display_output_region').val(), $('#display_output_variable').val())
+function displayOutputUpdate(generator, data) {
+    data.region = $('#display_output_region').val();
+    data.variable = $('#display_output_variable').val();
+    var src = generator + '?' + $.param(data);
     
     $('#display_output_img').attr('src', "/images/imperact/ajax-loader.gif");
     setTimeout(function() {

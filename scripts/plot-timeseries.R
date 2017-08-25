@@ -38,10 +38,10 @@ for (term in args[4:length(args)]) {
 
     if (substr(variable, 1, 1) == '-') {
         data <- ncvar_get(nc, substr(variable, 2, nchar(variable)))
-        series <- data[which(regions == my.region),]
+        series <- -data[which(regions == my.region),]
     } else {
         data <- ncvar_get(nc, variable)
-        series <- -data[which(regions == my.region),]
+        series <- data[which(regions == my.region),]
     }
     nc_close(nc)
 
