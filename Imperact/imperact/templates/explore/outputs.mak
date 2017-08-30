@@ -29,7 +29,7 @@ Output explorer
     });
   });
 
-  function fill_${name}(callback) {
+  function fill_${name}(callback, skipwalk) {
     $.getJSON("/explore/list_subdir", {subdir: parents_${name}.join('/')}, function(data) {
       $('#${name}').html('<option value="">Select below</option>');
       $.each(data['contents'], function(content, metadata) {
@@ -41,6 +41,9 @@ Output explorer
       $('#${name}').prop('disabled', false);
       callback();
     });
+
+    if (skipwalk)
+	return;
 
     % if name not in ['sector', 'version']:
     if (walking_jqxhr)
@@ -66,7 +69,7 @@ Output explorer
 	parents_${child}.push(descends[0]);
 	load_subdir_${child}(descends.slice(1));
       }
-    });
+    }, descends.length > 0);
   }
   
   function update_subdir_${name}() {
@@ -124,8 +127,14 @@ Output explorer
 </table>
 
 <div id="display_output" title="Display Output" style="display: none">
-  <label for="display_output_region">Region:</label>
-  <input type="text" name="region" id="display_output_region" />
-  <span id="display_output_title"></span>
-  <img id="display_output_img" src="/images/imperact/ajax-loader.gif" />
+  <h2 id="display_output_title"></h2>
+  <div>
+    <label for="display_output_region">Region:</label>
+    <input type="text" name="region" id="display_output_region" />
+    <label for="display_output_variable">Variable:</label>
+    <select name="variable" id="display_output_variable"></select>
+  </div>
+  <center>
+    <img id="display_output_img" src="/images/imperact/ajax-loader.gif" />
+  </center>
 </div>

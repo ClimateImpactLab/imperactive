@@ -4,6 +4,8 @@
 import os, yaml, subprocess, datetime, time
 from tg import expose, redirect, validate, flash, url, response
 import numpy as np
+import metacsv
+from netCDF4 import Dataset
 
 debug = False
 if debug:
@@ -69,7 +71,52 @@ class ExploreController(BaseController):
                 contents[content] = contents.get(content, 0) + 1
 
         return dict(contents=contents)
+        
+    @expose()
+    def timeseries(self, targetdir, basename, variable, region):
+        calculation = [basename + ':' + variable]
+        return self.graph_serve(targetdir, [basename], "%s.%s.%s.png" % (basename, variable, region),
+                                self.make_r_generate('plot-timeseries.R', [targetdir, region] + calculation))
+
+    @expose()
+    def timeseries_sum(self, targetdir, basevars, region, variable=None):
+        calculation = basevars.split(',')
+        basenames = map(lambda x: x[:x.index(':')], calculation)
+        return self.graph_serve(targetdir, basenames, "%s.%s.png" % (basevars, region),
+                                self.make_r_generate('plot-timeseries.R', [targetdir, region] + calculation))
+
+    @expose('json')
+    def search_regions(self, basename, query):
+        query = str(query) # remove encoding
+        if '-aggregated' in basename:
+            founds = np.core.defchararray.find(aggregated_search, query.lower()) >= 0
+            return dict(options=zip(aggregated_keys[founds], aggregated_labels[founds]))
+        else:
+            founds = np.core.defchararray.find(irlevel_search, query.lower()) >= 0
+            return dict(options=zip(irlevel_keys[founds], irlevel_labels[founds]))
+
+    @expose('json')
+    def get_variables(self, targetdir, basename):
+        filepath = os.path.join(directory_root, targetdir, basename + '.nc4')
+        rootgrp = Dataset(filepath, 'r', format='NETCDF4')
+        variables = rootgrp.variables.keys()
+        rootgrp.close()
+
+        return dict(variables=variables)
     
+    @expose(content_type=CUSTOM_CONTENT_TYPE)
+    def download_png(self, subpath):
+        if '..' in subpath or '//' in subpath:
+            raise UserException("Unexpected path: " + subpath)
+
+        with open(os.path.join(directory_root, subpath), 'r') as fp:
+            data = fp.read()
+
+        response.content_type = 'image/png'
+        response.headerlist.append(('Content-Disposition','filename=export.png'))
+
+        return data
+
     def graph_serve(self, targetdir, basenames, filename, generate):
         """Serve a graph, using cached if possible and otherwise calling generate."""
         outdir = os.path.join(aggregator.__path__[0], 'impercache', targetdir)
@@ -88,7 +135,6 @@ class ExploreController(BaseController):
             if later_than_all:
                 return self.download_png(destination)
 
-
         if not os.path.exists(outdir):
             os.makedirs(outdir)
         generate(destination)
@@ -104,39 +150,3 @@ class ExploreController(BaseController):
                 raise UserException("Command '{}' return with error (code {}): {}".format(e.cmd, e.returncode, e.output))
 
         return generate
-    
-    @expose()
-    def timeseries(self, targetdir, basename, variable, region):
-        calculation = [basename + ':' + variable]
-        return self.graph_serve(targetdir, [basename], "%s.%s.%s.png" % (basename, variable, region),
-                                self.make_r_generate('plot-timeseries.R', [targetdir, region] + calculation))
-
-    @expose()
-    def timeseries_sum(self, targetdir, basevars, region):
-        calculation = basevars.split(',')
-        basenames = map(lambda x: x[:x.index(':')], calculation)
-        return self.graph_serve(targetdir, basenames, "%s.%s.png" % (basevars, region),
-                                self.make_r_generate('plot-timeseries.R', [targetdir, region] + calculation))
-
-    @expose('json')
-    def search_regions(basename, query):
-        if '-aggregated' in basename:
-            founds = np.core.defchararray.find(aggregated_search, query.lower()) >= 0
-            return dict(options=zip(aggregated_keys[founds], aggregated_labels[founds]))
-        else:
-            founds = np.core.defchararray.find(irlevel_search, query.lower()) >= 0
-            return dict(options=zip(irlevel_keys[founds], irlevel_labels[founds]))
-    
-    @expose(content_type=CUSTOM_CONTENT_TYPE)
-    def download_png(self, subpath):
-        if '..' in subpath or '//' in subpath:
-            raise UserException("Unexpected path.")
-
-        with open(os.path.join(directory_root, subpath), 'r') as fp:
-            data = fp.read()
-
-        response.content_type = 'image/png'
-        response.headerlist.append(('Content-Disposition','filename=export.png'))
-
-        return data
-
