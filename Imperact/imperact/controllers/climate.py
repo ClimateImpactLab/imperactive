@@ -19,6 +19,8 @@ else:
     import aggregator
 
 import os, re, json
+import numpy as np
+import xarray as xr
 
 directory_root = '/shares/gcp/climate'
 ignores = ['climate_data_aggregation', 'BCSD/SMME-europe-zipped', '_spatial_data', 'ACP', 'SPEI', 'CFSR', 'CRUNCEP', 'CHIRPS']
@@ -67,6 +69,23 @@ class ClimateController(BaseController):
         print "OK"
         return dict(page='climate-index')
 
+    @expose('explore.climate_dataset')
+    def show(self, path):
+        if path[-3:] in ['nc4', '.nc']:
+            fullpath, templates, chosen = find_one_filename(path)
+        else:
+            cumpath, templates, chosen = file_one_directory(path)
+            filenames = glob.glob(os.path.join(cumpath, "*.nc?"))
+            templates['file'] = filenames
+            chosen['file'] = filenames[0]
+            fullpath = os.path.join(cumpath, chosen['file'])
+
+        metadata = describe(fullpath)
+        metadata['fullpath'] = fullpath
+        metadata['templates'] = templates
+        metadata['chosen'] = chosen
+        return metadata
+    
     @expose()
     def refresh_listing(self):
         data = self.listing()
@@ -151,3 +170,83 @@ class ClimateController(BaseController):
             print fullpath, guesses
             return {fullpath[len(directory_root) + 1:]: dict(type="ambiguous")}
 
+    def find_one_filename(fullpath):
+        directory, filename = os.path.split(fullpath)
+        cumpath, templates, chosen = find_one_directory(directory)
+
+        # Find all appropriate filenames
+        template = filename.replace('.', r'\.')
+        template = re.sub("%.", '(.*?)', template) + '$'
+
+        options = []
+        templates2 = None
+        for filename in os.listdir(cumpath):
+            match = re.match(template, filename)
+            if match:
+                options.append(filename)
+                if templates2 is None:
+                    templates2 = {}
+                    for key in match.groupdict():
+                        templates2[key] = [match.groupdict()[key]]
+                else:
+                    for key in match.groupdict():
+                        templates2[key].append(match.groupdict()[key])
+
+        # Merge templates sets
+        for key in templates2:
+            if key in templates:
+                templates[key] = list(set(templates[key] + templates2[key]))
+            else:
+                templates[key] = templates2[key]
+
+        # Filter options by pre-existing constraints
+        valid = [T] * len(options)
+        for key in chosen:
+            if key in templates2:
+                valid = [valid[ii] and templates2[key][ii] == chosen[key] for ii in range(len(valid))]
+
+        pickii = np.where(valid)[0][0]
+        for key in templates2:
+            chosen[key] = templates2[key][pickii]
+    
+        fullpath = os.path.join(chosen, options[pickii])
+        return fullpath, templates, chosen
+    
+    ## TODO: this doesn't handle well when previous directories determine
+    ## contents of future directories; need to search entire tree.
+    def find_one_directory(directory):
+        chunks = directory.split('%')
+        cumpath = chunks[0]
+        templates = {}
+        chosen = {}
+        for ii in range(1, len(chunks)):
+            options = os.listdir(os.path.join(directory_root, cumpath))
+            templates[chunks[ii][0]] = options
+            chosen[chunks[ii][0]] = options[0]
+            cumpath += options[0] + chunks[ii][1:]
+
+        return cumpath, templates, chosen
+
+    def describe(fullpath):
+        ds = xr.open_dataset(fullpath)
+
+        attrs = ds.attrs
+        dims = ds.dims
+    
+        coords = {}
+        for coord in ds.coords.keys():
+            coords[coord] = self.describe_variable(ds, coord)
+
+        variables = {}
+        for var in ds.variables.keys():
+            variables[var] = self.describe_variable(ds, var)
+
+        return dict(attrs=attrs, dims=dims, coords=coords, variables=variables)
+        
+    def describe_variable(self, ds, var):
+        infos = ds[var].attrs
+        infos['quantiles'] = ds.response.quantile([0, .5, 1])
+        infos['mean'] = ds[coord].mean()
+        infos['sdev'] = ds[coord].std()
+        infos['dims'] = ds[coord].dims
+        return infos
