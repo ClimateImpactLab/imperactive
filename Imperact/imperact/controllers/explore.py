@@ -7,7 +7,10 @@ import numpy as np
 import metacsv
 from netCDF4 import Dataset
 
-debug = False
+try:
+    from . import debug
+except:
+    debug = False
 if debug:
     from imperact.lib.base import BaseController
     from imperact.lib.errors import UserException
