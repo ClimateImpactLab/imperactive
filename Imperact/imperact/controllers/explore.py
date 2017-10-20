@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """Explore controller module"""
 
-import os, yaml, subprocess, datetime, time
+import os, yaml, subprocess, datetime, time, glob
 from tg import expose, redirect, validate, flash, url, response
 import numpy as np
 import metacsv
@@ -71,6 +71,33 @@ class ExploreController(BaseController):
         contents = {} # {filename: #}
         for root, dirs, files in os.walk(fullpath):
             for content in files:
+                contents[content] = contents.get(content, 0) + 1
+
+        return dict(contents=contents)
+
+    @expose('json')
+    def list_subdirpattern(self, subdir, pattern):
+        partpath = os.path.join(directory_root, subdir)
+        fullpath = os.path.join(directory_root, subdir, pattern)
+        contents = {}
+        for content in glob.glob(fullpath):
+            match = content[len(partpath)+1:]
+            contents[match] = match.split('/')
+
+        return dict(contents=contents)
+
+    @expose('json')
+    def walk_subdirpattern(self, subdir, pattern):
+        fullpath = os.path.join(directory_root, subdir, pattern, '*')
+
+        contents = {} # {filename: #}
+        for content in glob.glob(fullpath):
+            if os.path.isdir(content):
+                result = walk_subdir(content[len(directory_root):])
+                for content in result:
+                    contents[content] = contents.get(content, 0) + result[content]
+            else:
+                content = os.path.basename(content)
                 contents[content] = contents.get(content, 0) + 1
 
         return dict(contents=contents)
@@ -153,3 +180,4 @@ class ExploreController(BaseController):
                 raise UserException("Command '{}' return with error (code {}): {}".format(e.cmd, e.returncode, e.output))
 
         return generate
+
