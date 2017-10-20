@@ -88,12 +88,12 @@ class ExploreController(BaseController):
 
     @expose('json')
     def walk_subdirpattern(self, subdir, pattern):
-        fullpath = os.path.join(directory_root, subdir, pattern, '*')
+        fullpath = os.path.join(directory_root, subdir, pattern)
 
         contents = {} # {filename: #}
         for content in glob.glob(fullpath):
             if os.path.isdir(content):
-                result = walk_subdir(content[len(directory_root):])
+                result = self.walk_subdir(content[len(directory_root)+1:])['contents']
                 for content in result:
                     contents[content] = contents.get(content, 0) + result[content]
             else:
