@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
 """Climate controller module"""
 
+import os, glob
+
 from tg import expose, redirect, validate, flash, url
 # from tg.i18n import ugettext as _
 # from tg import predicates
@@ -69,18 +71,18 @@ class ClimateController(BaseController):
         print "OK"
         return dict(page='climate-index')
 
-    @expose('explore.climate_dataset')
+    @expose(template_root + '.templates.explore.climate_dataset')
     def show(self, path):
         if path[-3:] in ['nc4', '.nc']:
-            fullpath, templates, chosen = find_one_filename(path)
+            fullpath, templates, chosen = self.find_one_filename(path)
         else:
-            cumpath, templates, chosen = file_one_directory(path)
-            filenames = glob.glob(os.path.join(cumpath, "*.nc?"))
+            cumpath, templates, chosen = self.find_one_directory(path)
+            filenames = self.find_some_filenames_below(cumpath)
             templates['file'] = filenames
             chosen['file'] = filenames[0]
             fullpath = os.path.join(cumpath, chosen['file'])
 
-        metadata = describe(fullpath)
+        metadata = self.describe(fullpath)
         metadata['fullpath'] = fullpath
         metadata['templates'] = templates
         metadata['chosen'] = chosen
@@ -170,9 +172,9 @@ class ClimateController(BaseController):
             print fullpath, guesses
             return {fullpath[len(directory_root) + 1:]: dict(type="ambiguous")}
 
-    def find_one_filename(fullpath):
+    def find_one_filename(self, fullpath):
         directory, filename = os.path.split(fullpath)
-        cumpath, templates, chosen = find_one_directory(directory)
+        cumpath, templates, chosen = self.find_one_directory(directory)
 
         # Find all appropriate filenames
         template = filename.replace('.', r'\.')
@@ -214,7 +216,7 @@ class ClimateController(BaseController):
     
     ## TODO: this doesn't handle well when previous directories determine
     ## contents of future directories; need to search entire tree.
-    def find_one_directory(directory):
+    def find_one_directory(self, directory):
         chunks = directory.split('%')
         cumpath = chunks[0]
         templates = {}
@@ -227,7 +229,20 @@ class ClimateController(BaseController):
 
         return cumpath, templates, chosen
 
-    def describe(fullpath):
+    def find_some_filenames_below(self, path):
+        filenames = glob.glob(os.path.join(directory_root, path, "*.nc*"))
+        if len(filenames) > 0:
+            return filenames
+
+        for content in os.listdir(os.path.join(directory_root, path)):
+            if os.path.isdir(os.path.join(directory_root, path, content)):
+                filenames = self.find_some_filenames_below(os.path.join(path, content))
+                if len(filenames) > 0:
+                    return map(lambda filename: os.path.join(content, filename), filenames)
+                
+        return [] # None found!
+    
+    def describe(self, fullpath):
         ds = xr.open_dataset(fullpath)
 
         attrs = ds.attrs
@@ -245,8 +260,11 @@ class ClimateController(BaseController):
         
     def describe_variable(self, ds, var):
         infos = ds[var].attrs
-        infos['quantiles'] = ds.response.quantile([0, .5, 1])
-        infos['mean'] = ds[coord].mean()
-        infos['sdev'] = ds[coord].std()
-        infos['dims'] = ds[coord].dims
+        try:
+            infos['dims'] = ds[var].dims
+            infos['quantiles'] = ds[var].quantile([0, .5, 1]).values
+            infos['mean'] = ds[var].mean().values
+            infos['sdev'] = ds[var].std().values
+        except:
+            pass
         return infos

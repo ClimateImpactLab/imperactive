@@ -18,13 +18,15 @@
   <h2>Variables</h2>
   <dd>
   % for var in variables:
-  <dt>${var} (${dims[var]})</dt>
+  <dt>${var} (${dims.get(var, "Unknown dimensions")})</dt>
   <dd><ul>
+      % if 'quantiles' in variables[var]:
       <li>Min.: ${variables[var]['quantiles'][0]}, Med.:
       ${variables[var]['quantiles'][1]}, Max.:
 	${variables[var]['quantiles'][2]}</li>
       <li>Mean: ${variables[var]['mean']},
 	Std. Dev. ${variables[var]['sdev']}</li>
+      % endif
       % for attr in variables[var]:
       % if attr not in ['quantiles', 'mean', 'sdev', 'dims']:
       <li>${attr}: ${variables[var][attr]}</li>
