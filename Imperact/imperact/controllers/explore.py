@@ -26,6 +26,7 @@ else:
 
 directory_root = '/shares/gcp/outputs'
 scripts_root = '/home/jrising/research/gcp/imperactive/scripts'
+quantiles_path = '/home/jrising/research/gcp/prospectus-tools/gcp/extract/quantiles.py'
 last_purge = time.mktime(datetime.datetime(2017, 7, 20, 0, 0, 0).timetuple())
 
 hierarchy = metacsv.read_csv("/shares/gcp/regions/hierarchy_metacsv.csv")
@@ -109,6 +110,22 @@ class ExploreController(BaseController):
         basenames = map(lambda x: x[:x.index(':')], calculation)
         return self.graph_serve(targetdir, basenames, "%s.%s.png" % (basevars, region),
                                 self.make_r_generate('plot-timeseries.R', [targetdir, region] + calculation))
+
+    @expose()
+    def quantile_timeseries_sum(self, targetpattern, basevars, region):
+        fake_targetdir = targetpattern.replace('*', '__STAR__')
+        calculation = basevars.split(',')
+        basenames = map(lambda x: x[:x.index(':')], calculation)
+
+        # Split resultroot off of targetpattern
+        chunks = targetpattern.split('/')
+        resultroot = '/'.join(chunks[0:2]) # sector/version
+        targetsubpattern = '/'.join(chunks[2:]) # all the rest
+        
+        return self.graph_serve(fake_targetdir, basenames, "%s.%s.png" & (basevars, region),
+                                self.make_quantile_r_generate('plot-quantile-timeseries.R',
+                                                              resultroot, targetsubpattern,
+                                                              [region] + calculation))
     
     @expose('json')
     def search_regions(self, basename, query):
@@ -175,4 +192,27 @@ class ExploreController(BaseController):
                 raise UserException("Command '{}' return with error (code {}): {}".format(e.cmd, e.returncode, e.output))
 
         return generate
-    
+
+    def make_quantile_r_generate(self, scriptname, resultsroot, targetsubpattern, arguments):
+        """Create a generate function to pass to graph_serve that calls
+        quantile.py and passes the result to an R script."""
+        def generate(destination):
+            # Create a quantiles.py configuration script
+            config = {'result-root': os.path.join(directory_root, resultsroot),
+                      'output-format': 'edfcsv',
+                      'output-file': destination + '.csv', 'targetdirs': [targetsubpattern]}
+            with open(destination + '.yml', 'w') as fp:
+                yaml.dump(fp, config)
+
+            try:
+                subprocess.check_output(["python", quantiles_path, destination + '.yml'], stderr=subprocess.STDOUT)
+            except subprocess.CalledProcessError as e:
+                raise UserException("Command '{}' return with error (code {}): {}".format(e.cmd, e.returncode, e.output))
+
+            script = os.path.join(scripts_root, scriptname)
+            try:
+                return subprocess.check_output(["Rscript", script, destination] + arguments, stderr=subprocess.STDOUT)
+            except subprocess.CalledProcessError as e:
+                raise UserException("Command '{}' return with error (code {}): {}".format(e.cmd, e.returncode, e.output))
+
+        return generate
