@@ -92,10 +92,15 @@ class ExploreController(BaseController):
 
         contents = {} # {filename: #}
         for content in glob.glob(fullpath):
-            content = os.path.basename(content)
-            contents[content] = contents.get(content, 0) + 1
+            if os.path.isdir(content):
+                result = walk_subdir(content[len(directory_root):])
+                for content in result:
+                    contents[content] = contents.get(content, 0) + result[content]
+            else:
+                content = os.path.basename(content)
+                contents[content] = contents.get(content, 0) + 1
 
-        return dict(contents=contents)        
+        return dict(contents=contents)
         
     @expose()
     def timeseries(self, targetdir, basename, variable, region):
@@ -109,7 +114,7 @@ class ExploreController(BaseController):
         basenames = map(lambda x: x[:x.index(':')], calculation)
         return self.graph_serve(targetdir, basenames, "%s.%s.png" % (basevars, region),
                                 self.make_r_generate('plot-timeseries.R', [targetdir, region] + calculation))
-    
+
     @expose('json')
     def search_regions(self, basename, query):
         query = str(query) # remove encoding
@@ -128,7 +133,7 @@ class ExploreController(BaseController):
         rootgrp.close()
 
         return dict(variables=variables)
-
+    
     @expose(content_type=CUSTOM_CONTENT_TYPE)
     def download_png(self, subpath):
         if '..' in subpath or '//' in subpath:
@@ -175,4 +180,4 @@ class ExploreController(BaseController):
                 raise UserException("Command '{}' return with error (code {}): {}".format(e.cmd, e.returncode, e.output))
 
         return generate
-    
+
