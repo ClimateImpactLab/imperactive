@@ -158,9 +158,9 @@ function findEffectset(attributes, attributeses) {
 }
 
 function load_subdir_listing() {
-    if (parents_listing == null)
+    if (parents_pattern == null)
 	return;
-    $.getJSON("/explore/list_subdir", {subdir: parents_listing.join('/')}, function(data) {
+    $.getJSON("/explore/list_subdir", {subdir: parents_pattern.join('/')}, function(data) {
 	make_table(data.contents, function($link, basename, attributes, metainfo) {
 	    $link.click(function() {
 		displayOutput(attributes);
@@ -257,7 +257,7 @@ function timeseriesData(attributes) {
     var filename = attributes[0];
     
     var data = {
-	targetdir: parents_listing.join('/'),
+	targetdir: parents_pattern.join('/'),
 	basename: filename.substr(0, filename.lastIndexOf('.')),
     };
     if (filename.indexOf("-costs") != -1)

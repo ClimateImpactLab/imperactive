@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """Explore controller module"""
 
-import os, yaml, subprocess, datetime, time
+import os, yaml, subprocess, datetime, time, glob
 from tg import expose, redirect, validate, flash, url, response
 import numpy as np
 import metacsv
@@ -74,6 +74,28 @@ class ExploreController(BaseController):
                 contents[content] = contents.get(content, 0) + 1
 
         return dict(contents=contents)
+
+    @expose('json')
+    def list_subdirpattern(self, subdir, pattern):
+        partpath = os.path.join(directory_root, subdir)
+        fullpath = os.path.join(directory_root, subdir, pattern)
+        contents = {}
+        for content in glob.glob(fullpath):
+            match = content[len(partpath)+1:]
+            contents[match] = match.split('/')
+
+        return dict(contents=contents)
+
+    @expose('json')
+    def walk_subdirpattern(self, subdir, pattern):
+        fullpath = os.path.join(directory_root, subdir, pattern, '*')
+
+        contents = {} # {filename: #}
+        for content in glob.glob(fullpath):
+            content = os.path.basename(content)
+            contents[content] = contents.get(content, 0) + 1
+
+        return dict(contents=contents)        
         
     @expose()
     def timeseries(self, targetdir, basename, variable, region):
@@ -87,7 +109,7 @@ class ExploreController(BaseController):
         basenames = map(lambda x: x[:x.index(':')], calculation)
         return self.graph_serve(targetdir, basenames, "%s.%s.png" % (basevars, region),
                                 self.make_r_generate('plot-timeseries.R', [targetdir, region] + calculation))
-
+    
     @expose('json')
     def search_regions(self, basename, query):
         query = str(query) # remove encoding
@@ -106,7 +128,7 @@ class ExploreController(BaseController):
         rootgrp.close()
 
         return dict(variables=variables)
-    
+
     @expose(content_type=CUSTOM_CONTENT_TYPE)
     def download_png(self, subpath):
         if '..' in subpath or '//' in subpath:
@@ -153,3 +175,4 @@ class ExploreController(BaseController):
                 raise UserException("Command '{}' return with error (code {}): {}".format(e.cmd, e.returncode, e.output))
 
         return generate
+    
