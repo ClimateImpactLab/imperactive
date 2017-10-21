@@ -17,6 +17,7 @@ Output explorer
   parents_${name} = []; // list of parent directories
     
   $(function() {
+    // Respond to change in selection
     $('#${name}').change(function() {
       if ($('#${name}').val() == '') // The unselected option
 	parents_${child} = null;
@@ -30,7 +31,8 @@ Output explorer
     });
   });
 
-  function fill_${name}(callback, skipwalk) {
+  function fill_${name}(callback) {
+    // Populate my selectbox
     $.getJSON("/explore/list_subdir", {subdir: parents_${name}.join('/')}, function(data) {
       $('#${name}').html('<option value="">Select below</option>');
       $.each(data['contents'], function(content, metadata) {
@@ -42,24 +44,6 @@ Output explorer
       $('#${name}').prop('disabled', false);
       callback();
     });
-
-    if (skipwalk)
-	return;
-
-    % if name not in ['sector', 'version']:
-    if (walking_jqxhr)
-	walking_jqxhr.abort();
-    var jqxhr = $.getJSON("/explore/walk_subdir", {subdir: parents_${name}.join('/')}, function(data) {
-	// Check if still active
-	if (walking_jqxhr == jqxhr) {
-	    walking_jqxhr = null;
-	    make_table(data.contents, function($link, basename, attributes, metainfo) {
-		$link.prepend(metainfo + ' &times; ');
-	    }, true);
-	}
-    });
-    walking_jqxhr = jqxhr;
-    % endif
   }
 
   // Load a directory ancestry into the select boxes
@@ -71,20 +55,19 @@ Output explorer
 	parents_${child}.push(descends[0]);
 	load_subdir_${child}(descends.slice(1));
       }
-    }, descends.length > 0);
+    });
   }
 
-  // Called after select box changed; look in parents for full path
+  // Called when parent select box changed; look in parents for full path
   function update_subdir_${name}() {
     if (parents_${name} == null) {
 	$('#${name}').prop('disabled', true);
 	parents_${child} = null;
 	update_subdir_${child}();
     } else {
-	$('#${name}_parent').val(parent);
 	$('#${name}').prop('disabled', true).html('<option value="">Loading...</option>');
 	parents_${child} = null;
-	update_subdir_${child}();
+	update_subdir_${child}(); // first disable all below
 	fill_${name}(function() {});
     }
   }
@@ -100,79 +83,21 @@ Output explorer
 	  window.location.hash = parents_pattern.join('/');
       });
   });
-
-  function fill_${name}(callback, skipwalk) {
-    $.getJSON("/explore/list_subdir", {subdir: parents_${name}.join('/')}, function(data) {
-      $('#${name}').html('<option value="">Select below</option>');
-      $.each(data['contents'], function(content, metadata) {
-        if (metadata && metadata.title)
-          $('#${name}').append('<option value="' + content + '">' + metadata.title + '</option>');
-	else
-          $('#${name}').append('<option value="' + content + '">' + content + '</option>');
-      });
-      $('#${name}').prop('disabled', false);
-      callback();
-    });
-
-    if (skipwalk)
-	return;
-
-    % if name not in ['sector', 'version']:
-    if (walking_jqxhr)
-	walking_jqxhr.abort();
-    var jqxhr = $.getJSON("/explore/walk_subdir", {subdir: parents_${name}.join('/')}, function(data) {
-	// Check if still active
-	if (walking_jqxhr == jqxhr) {
-	    walking_jqxhr = null;
-	    make_table(data.contents, function($link, basename, attributes, metainfo) {
-		$link.prepend(metainfo + ' &times; ');
-	    }, true);
-	}
-    });
-    walking_jqxhr = jqxhr;
-    % endif
-  }
-
-  // Load a directory ancestry into the select boxes
-  function load_subdir_${name}(descends) {
-      fill_${name}(function() {
-	  if (descends.length > 0) {
-              $('#${name}').val(descends[0]); // happens before change handler set
-	      parents_pattern[${index}] = 
-	parents_${child} = parents_${name}.slice();
-	parents_${child}.push(descends[0]);
-	load_subdir_${child}(descends.slice(1));
-      }
-    }, descends.length > 0);
-  }
-  
-  function update_subdir_${name}() {
-    if (parents_${name} == null) {
-	$('#${name}').prop('disabled', true);
-	parents_${child} = null;
-	update_subdir_${child}();
-    } else {
-	$('#${name}_parent').val(parent);
-	$('#${name}').prop('disabled', true).html('<option value="">Loading...</option>');
-	parents_${child} = null;
-	update_subdir_${child}();
-	fill_${name}(function() {});
-    }
-  }
 </script>
 
 <p>
   <label name="${name}">
     ${label}
   </label>
-  <select name="${name}" id="${name}" disabled="disabled">
-    <option value="">Loading...</option>
+  <select name="${name}" class="pattern" disabled="disabled">
+    <option value="*">Any</option>
   </select>
 </p>
 </%def>
 
 <script type="text/javascript">
   parents_pattern = [];
+  pattern = [];
   walking_jqxhr = null;
 
   $(function() {
@@ -183,19 +108,62 @@ Output explorer
     }
   });
 
-  update_subdir_pattern = load_subdir_pattern = function(descends) {
-      
+  function fill_pattern() {
+      // Populate pattern selectboxes
+      $.getJSON("/explore/list_subdir_pattern", {
+	  subdir: parents_pattern.join('/'),
+	  pattern: pattern.join('/')
+      }, function(data) {
+	  $('.pattern').html('<option value="*">Any</option>');
+	  $.each(data['contents'], function(content, chunks) {
+	      for (var ii = 0; ii < chunks.length; ii++)
+		  $($('.pattern')[ii]).append('<option value="' + chunks[ii] + '">' + chunks[ii] + '</option>');
+	  });
+	  $('.pattern').prop('disabled', false);
+      });
+
+      // Show all available results
+      if (walking_jqxhr)
+	  walking_jqxhr.abort();
+      var jqxhr = $.getJSON("/explore/walk_subdir_pattern", {
+	  subdir: parents_pattern.join('/'),
+	  pattern: pattern.join('/')
+      }, function(data) {
+	  // Check if still active
+	  if (walking_jqxhr == jqxhr) {
+	      walking_jqxhr = null;
+	      make_table(data.contents, function($link, basename, attributes, metainfo) {
+		  $link.prepend(metainfo + ' &times; ');
+	      }, true);
+	  }
+      });
+      walking_jqxhr = jqxhr;
+  }
+
+  // Load a directory ancestry into the select boxes
+  function load_subdir_pattern(descends) {
+      pattern = descends;
+      fill_pattern();
+  }
+
+  function update_subdir_pattern() {
+    if (parents_pattern == null) {
+	$('.pattern').prop('disabled', true);
+    } else {
+	$('.pattern').prop('disabled', true).html('<option value="*">Loading...</option>');
+	fill_pattern();
+    }
   }
 </script>
 
 <div class="row">
   ${select_subdir("Sector", 'sector', 'version')}
-  ${select_subdir("Version", 'version', 'batch')}
-  ${select_subdir("Batch", 'batch', 'pattern')}
-  ${select_subdir_pattern("RCP", 'rcp', 0)}
-  ${select_subdir_pattern("GCM", 'gcm', 1)}
-  ${select_subdir_pattern("AIM", 'aim', 2)}
-  ${select_subdir_pattern("SSP", 'ssp', 3)}
+  ${select_subdir("Version", 'version', 'pattern')}
+  ${select_subdir_pattern("Batch", 'batch', 0)}
+  ${select_subdir_pattern("RCP", 'rcp', 1)}
+  ${select_subdir_pattern("GCM", 'gcm', 2)}
+  ${select_subdir_pattern("AIM", 'aim', 3)}
+  ${select_subdir_pattern("SSP", 'ssp', 4)}
 </div>
 
 <table id="listing" border="1">
