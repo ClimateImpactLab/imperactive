@@ -78,12 +78,20 @@ class ExploreController(BaseController):
     @expose('json')
     def list_subdirpattern(self, subdir, pattern):
         partpath = os.path.join(directory_root, subdir)
+        if pattern == '':
+            pattern = '*'
         fullpath = os.path.join(directory_root, subdir, pattern)
-        contents = {}
+        contents = []
         for content in glob.glob(fullpath):
-            match = content[len(partpath)+1:]
-            contents[match] = match.split('/')
-
+            if os.path.isdir(content):
+                chunks = content[len(partpath)+1:].split('/')
+                for ii in range(len(chunks)):
+                    if len(contents) == ii:
+                        contents.append(set())
+                    contents[ii].add(chunks[ii])
+        for ii in range(len(contents)):
+            contents[ii] = list(contents[ii])
+                    
         return dict(contents=contents)
 
     @expose('json')

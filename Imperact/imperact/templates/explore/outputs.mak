@@ -73,14 +73,25 @@ Output explorer
   }
 </script>
 
+<p>
+  <label name="${name}">
+    ${label}
+  </label>
+  <select name="${name}" id="${name}" disabled="disabled">
+    <option value="">Loading...</option>
+  </select>
+</p>
+</%def>
+
 <%def name="select_subdir_pattern(label, name, index)">
 ## Called for each directory selection that allows pattern paths
 <script type="text/javascript">
   $(function() {
       $('#${name}').change(function() {
 	  subdir = $('#${name}').val();
-	  parents_pattern[${index}] = subdir;
-	  window.location.hash = parents_pattern.join('/');
+	  pattern[${index}] = subdir;
+	  window.location.hash = parents_pattern.join('/') + '/' + pattern.join('/');
+	  fill_pattern();
       });
   });
 </script>
@@ -89,7 +100,7 @@ Output explorer
   <label name="${name}">
     ${label}
   </label>
-  <select name="${name}" class="pattern" disabled="disabled">
+  <select name="${name}" id="${name}" class="pattern" disabled="disabled">
     <option value="*">Any</option>
   </select>
 </p>
@@ -110,22 +121,29 @@ Output explorer
 
   function fill_pattern() {
       // Populate pattern selectboxes
-      $.getJSON("/explore/list_subdir_pattern", {
+      $.getJSON("/explore/list_subdirpattern", {
 	  subdir: parents_pattern.join('/'),
 	  pattern: pattern.join('/')
       }, function(data) {
 	  $('.pattern').html('<option value="*">Any</option>');
-	  $.each(data['contents'], function(content, chunks) {
-	      for (var ii = 0; ii < chunks.length; ii++)
-		  $($('.pattern')[ii]).append('<option value="' + chunks[ii] + '">' + chunks[ii] + '</option>');
+	  $.each(data['contents'], function(group, options) {
+	      for (var ii = 0; ii < options.length; ii++) {
+		  if (pattern[group] == options[ii])
+		      $($('.pattern')[group]).append('<option value="' + options[ii] + '" selected="selected">' + options[ii] + '</option>');
+		  else
+		      $($('.pattern')[group]).append('<option value="' + options[ii] + '">' + options[ii] + '</option>');
+	      }
 	  });
 	  $('.pattern').prop('disabled', false);
       });
 
+      if (pattern.join('/').indexOf('*') === -1)
+	  return load_subdir_listing();
+
       // Show all available results
       if (walking_jqxhr)
 	  walking_jqxhr.abort();
-      var jqxhr = $.getJSON("/explore/walk_subdir_pattern", {
+      var jqxhr = $.getJSON("/explore/walk_subdirpattern", {
 	  subdir: parents_pattern.join('/'),
 	  pattern: pattern.join('/')
       }, function(data) {
@@ -143,6 +161,8 @@ Output explorer
   // Load a directory ancestry into the select boxes
   function load_subdir_pattern(descends) {
       pattern = descends;
+      while (pattern.length < 5)
+	  pattern.push('*');
       fill_pattern();
   }
 
@@ -151,6 +171,7 @@ Output explorer
 	$('.pattern').prop('disabled', true);
     } else {
 	$('.pattern').prop('disabled', true).html('<option value="*">Loading...</option>');
+	pattern = ['*', '*', '*', '*', '*'];
 	fill_pattern();
     }
   }
