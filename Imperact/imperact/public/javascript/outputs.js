@@ -1,7 +1,20 @@
+infixes = []; // refreshed each time interpretAll is called
+
 function interpretAll(filenames) {
+    // Look for infixes
+    infixes = [];
+    var re = /-(histclim|noadapt|incadapt)-(.+)-(aggregated|levels)\.nc4$/;
+    for (var ii = 0; ii < filenames.length; ii++) {
+	var matches = filenames[ii].match(re);
+	if (matches) {
+	    infixes.push(matches[2]);
+	}
+    }
+    infixes = $.unique(infixes);
+    
     basenames = {}; // {basename: [attributes...]}
     $.each(filenames, function(ii, filename) {
-	var split = interpret(filename);
+	var split = interpret(filename, infixes);
 	if (!basenames[split.basename])
 	    basenames[split.basename] = [];
 	basenames[split.basename].push(split.attributes);
@@ -10,7 +23,7 @@ function interpretAll(filenames) {
     return basenames;
 }
 
-function interpret(filename) {
+function interpret(filename, infixes) {
     var attributes = [];
     
     // Get basename and attributes
@@ -31,6 +44,8 @@ function interpret(filename) {
 	basename = endremove(basename, 'noadapt', attributes);
 	basename = endremove(basename, 'incadapt', attributes);
 	basename = endremove(basename, 'indiamerge', attributes);
+	for (var ii = 0; ii < infixes.length; ii++)
+	    basename = endremove(basename, infixes[ii], attributes, "Infix_" + infixes[ii]);
     }
     if ($.inArray('noadapt', attributes) == -1 && $.inArray('incadapt', attributes) == -1)
 	attributes.unshift('fulladapt');
@@ -47,7 +62,11 @@ function interpret(filename) {
 
 function endremove(basename, attr, attributes, title) {
     if (basename.endsWith('-' + attr)) {
-	attributes.unshift(attr);
+	if (!title)
+	    attributes.unshift(attr);
+	else
+	    attributes.unshift(title);
+	
 	return basename.slice(0, -attr.length - 1);
     }
 
@@ -172,7 +191,7 @@ function make_table(contents, link_callback, skiphist) {
     $('#listing').html("  <tr><th>Basename</th><th>Available</th></tr>");
     var basenames = interpretAll($.map(contents, function(metainfo, content) {return content}));
     $.each(basenames, function(basename, attributeses) {
-	// Collect derivatives of basename into groups
+	// Collect derivatives of basename into groups amd lomers (to be used as icons)
 	var groups = [];
 	var loners = [];
 	var $links = [];
@@ -227,7 +246,7 @@ function make_table(contents, link_callback, skiphist) {
 
 	// Group links together
 	var $groupdivs = $.map($.unique(groups), function(group) {
-	    var $irlevel = $linksdiv.find('.' + group + '.' + 'irlevel');
+ 	    var $irlevel = $linksdiv.find('.' + group + '.' + 'irlevel');
 	    var $levels = $linksdiv.find('.' + group + '.' + 'levels');
 	    var $aggregated = $linksdiv.find('.' + group + '.' + 'aggregated');
 	    
